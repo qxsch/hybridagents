@@ -718,18 +718,18 @@ All model/provider settings are loaded from `.env` (see **Environment Configurat
 Non-secret settings in `config.py`:
 
 | Setting              | Default                | Description                        |
-|----------------------|------------------------|------------------------------------||
-| `CHROMA_PERSIST_DIR` | `./hybridagents/chroma_data` | ChromaDB storage path              |
+|----------------------|------------------------|------------------------------------|
+| `CHROMA_PERSIST_DIR` | `./hybridagents/chroma_data` | ChromaDB storage path        |
 | `CHROMA_COLLECTION`  | `agent_memory`         | Default ChromaDB collection        |
 | `MAX_LOOP_ITERATIONS`| `50`                   | Safety limit per agent turn        |
 | `VERBOSE`            | `True`                 | Print reasoning steps to console   |
 
 ## Example Agents (02_research_team)
 
-| Agent          | Tools                                          | Can delegate to        |
+| Agent          | Tools                                           | Can delegate to        |
 |----------------|-------------------------------------------------|------------------------|
 | **orchestrator** | memory_search, memory_store, calculator       | researcher, coder      |
-| **researcher**   | memory_search, memory_store, read_file, list_dir | —                    |
+| **researcher**   | memory_search, memory_store, read_file, list_dir | —                   |
 | **coder**        | calculator, read_file, write_file, list_dir   | —                      |
 
 These agents are defined in `examples/02_research_team/run.py`.
