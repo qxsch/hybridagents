@@ -37,5 +37,5 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 ```
 
-4. Import from the SDK and register your agents/tools.
+4. Import from the SDK and register your hybridagents/tools.
 5. Run: `python examples/06_my_demo/run.py`

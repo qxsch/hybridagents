@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from agents import Agent, Runtime
+from hybridagents import Agent, Runtime
 
 # ── Create a runtime and register one agent ────────────────
 rt = Runtime()

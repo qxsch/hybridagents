@@ -6,7 +6,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
-agents.egg-info/
+hybridagents.egg-info/
 
 # ChromaDB local data
-agents/chroma_data/
+hybridagents/chroma_data/

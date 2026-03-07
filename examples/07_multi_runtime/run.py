@@ -30,9 +30,9 @@ from pathlib import Path
 # ── Make SDK importable ────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from agents import Agent, Runtime
-from agents.core.orchestration import sequential
-from agents import tool
+from hybridagents import Agent, Runtime
+from hybridagents.core.orchestration import sequential
+from hybridagents import tool
 
 
 # ── Helper ─────────────────────────────────────────────────

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import argparse
 
-from agents import Agent, Runtime
+from hybridagents import Agent, Runtime
 
 # ── Build runtime (default tools auto-loaded) ──────────────
 rt = Runtime()

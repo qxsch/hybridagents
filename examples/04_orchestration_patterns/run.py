@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import argparse
 
-from agents import Agent, Runtime
-from agents.core.orchestration import sequential, debate, voting
+from hybridagents import Agent, Runtime
+from hybridagents.core.orchestration import sequential, debate, voting
 
 from rich.console import Console
 from rich.panel import Panel
@@ -51,6 +51,7 @@ critic = rt.register(
             "You are a constructive critic. "
             "Review the text you receive, point out weaknesses, "
             "and suggest concrete improvements."
+            "Also include the original text in the beginning of your response, so the editor can easily compare and apply your suggestions."
         ),
     )
 )
@@ -60,7 +61,9 @@ editor = rt.register(
         name="editor",
         instruction=(
             "You are a professional editor. "
-            "Take the draft and critique, then produce a polished final version."
+            "Take the draft and critic, then produce a polished final version to what the user asked for. "
+            "Don't just apply the critic, use your judgement to decide what to keep. And never quote or mention the critic or drafter (like 'the critic said ...'). "
+            "The final version should be a standalone piece that doesn't reference the drafting process at all."
         ),
     )
 )

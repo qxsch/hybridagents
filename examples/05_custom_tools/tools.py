@@ -8,7 +8,7 @@ import datetime
 import json
 import random
 
-from agents import tool
+from hybridagents import tool
 
 
 @tool(

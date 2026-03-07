@@ -21,7 +21,7 @@ from pathlib import Path
 # ── Make SDK importable ────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from agents import (
+from hybridagents import (
     Agent,
     AgentResponse,
     DeterministicAgent,

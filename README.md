@@ -1,4 +1,6 @@
-# Agentic Framework – Hybrid LLM (Ollama + Azure AI Foundry + GitHub Copilot)
+# hybridagents – Hybrid LLM Agentic Framework (Ollama + Azure AI Foundry + GitHub Copilot)
+
+This is a works-for-me project used for educational purposes.
 
 A modular Python agentic loop with **hybrid LLM routing** — run models locally via **Ollama** or in the cloud via **Azure AI Foundry** (GPT-4o, Claude, Mistral, and more) or **GitHub Copilot** (via the official Copilot SDK). Uses **ChromaDB** for vector memory.
 
@@ -134,7 +136,7 @@ The framework includes **15 ready-to-use orchestration helpers** inspired by
 Import them from `agents.core.orchestration`:
 
 ```python
-from agents.core.orchestration import (
+from hybridagents.core.orchestration import (
     sequential, concurrent, group_chat, handoff, magentic,
     debate, voting, reflection, router, hierarchical,
     map_reduce, blackboard, supervisor, iterative_refinement, auction,
@@ -414,7 +416,7 @@ result = auction(
 .env.example                  # Committed template
 pyproject.toml                # pip install -e .  (makes agents importable)
 
-agents/                       # ── SDK (framework only, no example code) ──
+hybridagents/                       # ── SDK (framework only, no example code) ──
 ├── config.py                 # Loads .env, exposes settings
 ├── core/
 │   ├── llm.py                # LLM router (dispatches to provider) + auto-filter hook
@@ -451,7 +453,7 @@ agents/                       # ── SDK (framework only, no example code) ─
 │   └── loop.py               # ReAct agentic loop (+ deterministic dispatch)
 ├── privacy/                  # Privacy SDK – anonymisation & filtering
 │   ├── __init__.py           # Public API surface
-│   ├── __main__.py           # CLI (python -m agents.privacy)
+│   ├── __main__.py           # CLI (python -m hybridagents.privacy)
 │   ├── models.py             # Detection, ScanResult dataclasses
 │   ├── vault.py              # EntityVault – reversible placeholder mapping
 │   ├── config.py             # PrivacyConfig, LLMFilterConfig, CustomPatternConfig
@@ -498,7 +500,7 @@ agent registries.  Create one, register agents, and call `repl()` or `run()` —
 no global functions needed.
 
 ```python
-from agents import Agent, Runtime
+from hybridagents import Agent, Runtime
 
 rt = Runtime()                         # loads default tools automatically
 
@@ -571,7 +573,7 @@ logic and plugs into the same ecosystem — `run_agent()`, `Runtime.run()`,
 `Runtime.repl()`, and all 15 orchestration patterns.
 
 ```python
-from agents import DeterministicAgent, AgentResponse, HandoverRequest, Runtime
+from hybridagents import DeterministicAgent, AgentResponse, HandoverRequest, Runtime
 
 class InputValidator(DeterministicAgent):
     """Validates input, then delegates to an LLM agent."""
@@ -627,7 +629,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 ```python
 # examples/05_custom_tools/tools.py
-from agents import tool
+from hybridagents import tool
 
 @tool(
     name="my_tool",
@@ -661,10 +663,10 @@ def my_tool(query: str) -> str: ...
 
 ### Option B: In the SDK (available to all examples)
 
-1. Create `agents/tools/my_tool.py` with the `@tool` decorator.
-2. Import it in `agents/tools/__init__.py`:
+1. Create `hybridagents/tools/my_tool.py` with the `@tool` decorator.
+2. Import it in `hybridagents/tools/__init__.py`:
 ```python
-from agents.tools import my_tool  # noqa: F401
+from hybridagents.tools import my_tool  # noqa: F401
 ```
 3. Every `Runtime()` will automatically include the new tool.
 
@@ -676,7 +678,7 @@ Agents are defined where you need them — typically inside an example:
 
 ```python
 # examples/06_my_demo/run.py
-from agents import Agent, Runtime
+from hybridagents import Agent, Runtime
 
 rt = Runtime()
 
@@ -717,7 +719,7 @@ Non-secret settings in `config.py`:
 
 | Setting              | Default                | Description                        |
 |----------------------|------------------------|------------------------------------||
-| `CHROMA_PERSIST_DIR` | `./agents/chroma_data` | ChromaDB storage path              |
+| `CHROMA_PERSIST_DIR` | `./hybridagents/chroma_data` | ChromaDB storage path              |
 | `CHROMA_COLLECTION`  | `agent_memory`         | Default ChromaDB collection        |
 | `MAX_LOOP_ITERATIONS`| `50`                   | Safety limit per agent turn        |
 | `VERBOSE`            | `True`                 | Print reasoning steps to console   |
@@ -781,37 +783,37 @@ to Azure AI Foundry or any remote LLM provider.
 
 ```bash
 # List available filters
-python -m agents.privacy filters
+python -m hybridagents.privacy filters
 
 # Scan text for sensitive data
-python -m agents.privacy scan --text "Max Mustermann, max@firma.de, IBAN DE89370400440532013000"
+python -m hybridagents.privacy scan --text "Max Mustermann, max@firma.de, IBAN DE89370400440532013000"
 
 # Scrub text (replace PII with placeholders) and show the vault
-python -m agents.privacy scrub --text "Send €5,000 to max@firma.de" --show-vault
+python -m hybridagents.privacy scrub --text "Send €5,000 to max@firma.de" --show-vault
 
 # Full round-trip: scrub → restore → verify match
-python -m agents.privacy roundtrip --text "Max Mustermann, max@firma.de"
+python -m hybridagents.privacy roundtrip --text "Max Mustermann, max@firma.de"
 
 # Read from a file
-python -m agents.privacy scan --file invoice.txt
+python -m hybridagents.privacy scan --file invoice.txt
 
 # Pipe from stdin
-echo "max@firma.de" | python -m agents.privacy scan
+echo "max@firma.de" | python -m hybridagents.privacy scan
 
 # Use only specific filters
-python -m agents.privacy scan --text "..." --filters email,iban
+python -m hybridagents.privacy scan --text "..." --filters email,iban
 
 # Enable local-LLM filter (requires running Ollama)
-python -m agents.privacy scan --text "Max Mustermann from Berlin" --llm
+python -m hybridagents.privacy scan --text "Max Mustermann from Berlin" --llm
 
 # Set confidence threshold
-python -m agents.privacy scan --text "..." --threshold 0.8
+python -m hybridagents.privacy scan --text "..." --threshold 0.8
 ```
 
 ### Python API
 
 ```python
-from agents.privacy import PrivacyPipeline, PrivacyConfig, EntityVault
+from hybridagents.privacy import PrivacyPipeline, PrivacyConfig, EntityVault
 
 # 1. Create a pipeline (all built-in filters, default config)
 pipeline = PrivacyPipeline.from_config(PrivacyConfig.default())
@@ -848,7 +850,7 @@ scrubbed_msgs, vault = pipeline.scrub_messages(messages)
 #### Custom regex patterns via config
 
 ```python
-from agents.privacy import PrivacyConfig, CustomPatternConfig, PrivacyPipeline
+from hybridagents.privacy import PrivacyConfig, CustomPatternConfig, PrivacyPipeline
 
 config = PrivacyConfig(
     filters=["email"],                     # only email + custom
@@ -919,7 +921,7 @@ where data is anonymised locally before it ever reaches a cloud LLM:
 
 ```python
 # In your example run.py:
-from agents import Agent, Runtime
+from hybridagents import Agent, Runtime
 
 rt = Runtime()
 
@@ -971,7 +973,7 @@ deanonymiser = rt.register(
 #### 2. Run the sequential pipeline
 
 ```python
-from agents.core.orchestration import sequential
+from hybridagents.core.orchestration import sequential
 
 with rt:
     result = sequential(
