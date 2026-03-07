@@ -22,7 +22,8 @@ ollama serve          # if not already running
 .\.venv\Scripts\Activate.ps1
 
 # 3. Install the SDK in editable mode (one-time)
-pip install -e .
+pip install hybridagents
+# or from source use:   pip install -e .
 
 # 4. Configure environment (copy and edit)
 cp .env.example .env    # then fill in your values
