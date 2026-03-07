@@ -99,6 +99,39 @@ class PrivacyPipeline:
         """Add a custom filter to the pipeline."""
         self._filters.append(filt)
 
+    def add_regex_filter(
+        self,
+        name: str,
+        patterns: list[str],
+        *,
+        category: str = "custom",
+        placeholder_prefix: str | None = None,
+        confidence: float = 1.0,
+    ) -> RegexFilter:
+        """
+        Convenience: create and add a :class:`RegexFilter` in one call.
+
+        Returns the newly created filter so callers can keep a reference.
+
+        Usage::
+
+            pipeline.add_regex_filter(
+                name="order_id",
+                patterns=[r"ORD-\\d{6,10}"],
+                category="internal",
+                placeholder_prefix="ORDER_ID",
+            )
+        """
+        filt = RegexFilter(
+            name=name,
+            category=category,
+            patterns=patterns,
+            placeholder_prefix=placeholder_prefix or name.upper(),
+            confidence=confidence,
+        )
+        self._filters.append(filt)
+        return filt
+
     def remove_filter(self, name: str) -> None:
         """Remove a filter by name."""
         self._filters = [f for f in self._filters if f.name != name]

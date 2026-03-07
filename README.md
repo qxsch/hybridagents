@@ -777,7 +777,9 @@ to Azure AI Foundry or any remote LLM provider.
 | `tax_id`     | TAX_ID       | `DE123456789`, `ATU12345678`, `CHE-123.456.789`            |
 | `credential` | CREDENTIAL   | `sk-proj-...`, `AKIA...`, `Bearer eyJ...`, `password=...`  |
 | `money`      | MONEY        | `€5.000,00`, `$1,234.56`, `250.000 Euro`, `100 CHF`        |
+| *regex*      | configurable | Use your own regex (via Python Code)                       |
 | *LLM filter* | configurable | Person names, company names, addresses (via local Ollama)  |
+| *custom*     | configurable | Define your own filter in Python code                      |
 
 ### CLI Usage
 
@@ -866,6 +868,92 @@ config = PrivacyConfig(
 pipeline = PrivacyPipeline.from_config(config)
 result = pipeline.scan("Order ORD-12345678 for max@firma.de")
 ```
+
+#### Adding custom filters via Python code
+
+You can register additional filters on **any** pipeline instance at any time —
+this works independently of the `PRIVACY_AUTO_FILTER` setting and the
+`PrivacyConfig`.  There are three ways, from simplest to most flexible:
+
+**1. Quick regex filter (one-liner)**
+
+Use `add_regex_filter()` to add a pattern without writing a class:
+
+```python
+from hybridagents.privacy import PrivacyPipeline, PrivacyConfig
+
+pipeline = PrivacyPipeline.from_config(PrivacyConfig.default())
+
+# Add a custom regex filter for internal project IDs
+pipeline.add_regex_filter(
+    name="project_id",
+    patterns=[r"PRJ-\d{6}"],
+    category="internal",
+    placeholder_prefix="PROJECT_ID",   # produces <PROJECT_ID_1>, <PROJECT_ID_2>, …
+    confidence=1.0,
+)
+
+# Add another for Swiss AHV numbers
+pipeline.add_regex_filter(
+    name="ahv_number",
+    patterns=[r"756\.\d{4}\.\d{4}\.\d{2}"],
+    category="pii",
+    placeholder_prefix="AHV",
+)
+
+# Both filters are now active alongside the built-in ones
+result = pipeline.scan("Project PRJ-123456, AHV 756.1234.5678.90")
+scrubbed, vault = pipeline.scrub("Project PRJ-123456, AHV 756.1234.5678.90")
+print(scrubbed)   # "Project <PROJECT_ID_1>, AHV <AHV_1>"
+```
+
+**2. Instantiate `RegexFilter` directly and add it**
+
+Equivalent to the above, but gives you direct access to the filter object:
+
+```python
+from hybridagents.privacy import PrivacyPipeline, PrivacyConfig, RegexFilter
+
+pipeline = PrivacyPipeline.from_config(PrivacyConfig.default())
+
+order_filter = RegexFilter(
+    name="order_id",
+    category="internal",
+    patterns=[r"ORD-\d{6,10}", r"INV-\d{6,10}"],   # multiple patterns per filter
+    placeholder_prefix="ORDER_ID",
+    confidence=1.0,
+)
+pipeline.add_filter(order_filter)
+```
+
+**3. Write a full `Filter` subclass**
+
+For complex detection logic that goes beyond regex (e.g. checksum validation,
+context-aware heuristics), subclass `Filter` directly:
+
+```python
+from hybridagents.privacy import PrivacyPipeline, PrivacyConfig, Filter
+from hybridagents.privacy.models import Detection
+
+class MyCustomFilter(Filter):
+    name = "custom_id"
+    category = "internal"
+
+    def scan(self, text: str) -> list[Detection]:
+        detections = []
+        # … your detection logic here …
+        # For each match, append a Detection:
+        #   Detection(filter_name=self.name, category=self.category,
+        #             start=..., end=..., original=..., confidence=1.0)
+        return detections
+
+pipeline = PrivacyPipeline.from_config(PrivacyConfig.default())
+pipeline.add_filter(MyCustomFilter())
+```
+
+> **Tip:** You can also remove built-in filters you don't need:
+> `pipeline.remove_filter("money")`.  Use `pipeline.filter_names` to
+> list all currently active filters.
 
 ### Agent Tools
 
