@@ -47,8 +47,7 @@ If you find nothing, return an empty array: []
 Rules:
 - Only report entities that actually appear as substrings.
 - Do NOT invent entities.
-- Do NOT report emails, phone numbers, IBANs, or monetary amounts —
-  those are handled by other specialised filters.
+- Stick to the specified categories. If you find something that doesn't fit, just skip it.
 - Respond ONLY with the JSON array, no extra text.
 """
 
