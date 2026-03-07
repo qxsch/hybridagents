@@ -1,0 +1,12 @@
+# Environment secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+agents.egg-info/
+
+# ChromaDB local data
+agents/chroma_data/
