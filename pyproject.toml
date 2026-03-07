@@ -4,9 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hybridagents"
-version = "1.0.0"
+version = "1.0.1"
 description = "Modular agentic framework - hybrid LLM (Ollama + Azure AI Foundry + GitHub Copilot) with privacy filters"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
+keywords = ["agents", "llm", "ollama", "azure", "copilot", "privacy", "orchestration"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "ollama>=0.4.0",
     "openai>=1.30.0",
@@ -16,6 +28,11 @@ dependencies = [
     "rich>=13.0.0",
     "pydantic>=2.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/qxsch/hybridagents"
+Repository = "https://github.com/qxsch/hybridagents"
+Issues = "https://github.com/qxsch/hybridagents/issues"
 
 [tool.setuptools.packages.find]
 include = ["hybridagents*"]
