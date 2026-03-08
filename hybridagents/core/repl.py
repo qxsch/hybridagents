@@ -96,7 +96,10 @@ def run_repl(agent: "Agent | DeterministicAgent", *, max_iterations: int | None 
 
         answer = run_agent(agent, user_input, conversation=conversation)
 
-        conversation.append({"role": "user", "content": user_input})
-        conversation.append({"role": "assistant", "content": answer})
+        # Convert list to string for display (Rich Panel requires a string)
+        display_answer = "\n".join(answer) if isinstance(answer, list) else answer
 
-        console.print(Panel(answer, title=f"{agent.name}", style="green"))
+        conversation.append({"role": "user", "content": user_input})
+        conversation.append({"role": "assistant", "content": display_answer})
+
+        console.print(Panel(display_answer, title=f"{agent.name}", style="green"))
