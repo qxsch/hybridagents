@@ -33,6 +33,8 @@ class LLMFilterConfig:
     model: str = "phi4"
     categories: list[str] = field(default_factory=lambda: ["person_name", "company_name", "address"])
     confidence: float = 0.80
+    extra_prompt: str = ""                # additional user-supplied instructions
+    use_llm_confidence: bool = False      # blend LLM's per-entity confidence score
 
 
 @dataclass
@@ -85,6 +87,8 @@ class PrivacyConfig:
         llm_model = os.getenv("PRIVACY_LLM_MODEL", "phi4")
         llm_cats_str = os.getenv("PRIVACY_LLM_CATEGORIES", "person_name,company_name,address")
         llm_cats = [c.strip() for c in llm_cats_str.split(",") if c.strip()]
+        llm_extra = os.getenv("PRIVACY_LLM_EXTRA_PROMPT", "")
+        llm_use_conf = os.getenv("PRIVACY_LLM_USE_LLM_CONFIDENCE", "false").lower() in ("1", "true", "yes")
 
         return cls(
             filters=filters,
@@ -95,6 +99,8 @@ class PrivacyConfig:
                 enabled=llm_enabled,
                 model=llm_model,
                 categories=llm_cats,
+                extra_prompt=llm_extra,
+                use_llm_confidence=llm_use_conf,
             ),
         )
 
@@ -124,6 +130,8 @@ class PrivacyConfig:
             model=llm_data.get("model", "phi4"),
             categories=llm_data.get("categories", ["person_name", "company_name", "address"]),
             confidence=llm_data.get("confidence", 0.80),
+            extra_prompt=llm_data.get("extra_prompt", ""),
+            use_llm_confidence=llm_data.get("use_llm_confidence", False),
         )
 
         custom_raw = data.get("custom_patterns", [])
@@ -159,6 +167,8 @@ class PrivacyConfig:
                 "model": self.llm_filter.model,
                 "categories": self.llm_filter.categories,
                 "confidence": self.llm_filter.confidence,
+                "extra_prompt": self.llm_filter.extra_prompt,
+                "use_llm_confidence": self.llm_filter.use_llm_confidence,
             },
             "custom_patterns": [
                 {

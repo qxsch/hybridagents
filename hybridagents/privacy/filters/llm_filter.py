@@ -30,13 +30,30 @@ from hybridagents.privacy.models import Detection
 log = logging.getLogger(__name__)
 
 
-_SYSTEM_PROMPT = """\
-You are a privacy-detection assistant.  Your ONLY job is to find personally
-identifiable information (PII) and sensitive entities in the text the user gives you.
+# ── Prompt sections ───────────────────────────────────────────
+# The system prompt is assembled at runtime from three blocks:
+#   1. _PROMPT_TASK       – what to find  (primacy zone)
+#   2. extra_prompt       – user-supplied guidance (middle zone, optional)
+#   3. _PROMPT_FORMAT     – JSON contract & hard rules (recency zone)
+# This ordering exploits primacy-recency bias: the task steers
+# behaviour, the format rules are the last thing the model reads
+# before generating, and the (optional) extra prompt sits in the
+# lower-attention middle where it adds context without overriding
+# the output contract.
 
+_PROMPT_TASK = """\
+Find all sensitive information in the text below.
+
+Look for these categories: {categories}
+"""
+
+_CONFIDENCE_FIELD = \
+    '  - "confidence": how confident you are that this is sensitive (0.0 to 1.0)'
+
+_PROMPT_FORMAT = """\
 Return a JSON array of objects.  Each object MUST have:
-  - "type": one of {categories}
-  - "value": the exact substring from the text
+  - "type": one of the categories above
+  - "value": the exact substring from the text{confidence_field}
 
 Optionally include (but these are only hints - accuracy is not required):
   - "start": approximate character offset where the value starts (0-based)
@@ -47,9 +64,23 @@ If you find nothing, return an empty array: []
 Rules:
 - Only report entities that actually appear as substrings.
 - Do NOT invent entities.
-- Stick to the specified categories. If you find something that doesn't fit, just skip it.
+- Stick to the specified categories.  If you find something that doesn't fit, skip it.
 - Respond ONLY with the JSON array, no extra text.
 """
+
+
+def _build_system_prompt(
+    categories: str,
+    extra_prompt: str = "",
+    use_llm_confidence: bool = False,
+) -> str:
+    """Assemble the full system prompt from task + optional extra + format."""
+    parts = [_PROMPT_TASK.format(categories=categories)]
+    if extra_prompt:
+        parts.append(f"Additional instructions:\n{extra_prompt}\n")
+    conf = f"\n{_CONFIDENCE_FIELD}" if use_llm_confidence else ""
+    parts.append(_PROMPT_FORMAT.format(confidence_field=conf))
+    return "\n".join(parts)
 
 
 # ── Helpers for robust offset resolution ──────────────────────
@@ -131,13 +162,16 @@ def _resolve_offset(
     hint_start: int | None,
     hint_end: int | None,
     consumed: set[tuple[int, int]],
-) -> tuple[int, int, str, float] | None:
+) -> tuple[int, int, str, float, float] | None:
     """
-    Resolve the actual ``(start, end, matched_value, confidence_modifier)``
+    Resolve the actual ``(start, end, matched_value, offset_penalty, llm_weight)``
     for *value* inside *source_text*.
 
     *consumed* tracks spans already claimed by earlier entities so the
     same occurrence isn't matched twice.
+
+    *llm_weight* indicates how much to trust the LLM's confidence score
+    for this match quality: 0.50 for exact matches, 0.25 for fuzzy.
 
     Returns ``None`` if the value cannot be located at all.
     """
@@ -151,14 +185,14 @@ def _resolve_offset(
     if hint_start is not None and hint_end is not None:
         if 0 <= hint_start < len(source_text) and hint_end <= len(source_text):
             if source_text[hint_start:hint_end] == value and _span_free(hint_start, hint_end):
-                return hint_start, hint_end, value, 0.0  # full confidence
+                return hint_start, hint_end, value, 0.0, 0.50
 
     # ── 2. Exact substring – all occurrences, pick closest to hint ─
     positions = _find_all(source_text, value)
     free = [p for p in positions if _span_free(p, p + vlen)]
     if free:
         best = _closest(free, hint_start) if hint_start is not None else free[0]
-        return best, best + vlen, value, 0.0
+        return best, best + vlen, value, 0.0, 0.50
 
     # ── 3. Case-insensitive match ─────────────────────────────
     ci_hits = _find_all_casefold(source_text, value)
@@ -168,7 +202,7 @@ def _resolve_offset(
             best_p, best_actual = min(ci_free, key=lambda x: abs(x[0] - hint_start))
         else:
             best_p, best_actual = ci_free[0]
-        return best_p, best_p + len(best_actual), best_actual, -0.05  # slight penalty
+        return best_p, best_p + len(best_actual), best_actual, -0.05, 0.25
 
     # ── 4. Whitespace-normalised fuzzy match ──────────────────
     ws_hits = _find_fuzzy_ws(source_text, value)
@@ -178,7 +212,7 @@ def _resolve_offset(
             best_s, best_e, best_actual = min(ws_free, key=lambda x: abs(x[0] - hint_start))
         else:
             best_s, best_e, best_actual = ws_free[0]
-        return best_s, best_e, best_actual, -0.10  # larger penalty
+        return best_s, best_e, best_actual, -0.10, 0.25
 
     # ── 5. Nothing found ──────────────────────────────────────
     return None
@@ -200,11 +234,15 @@ class LLMFilter(Filter):
         model: str = "phi4",
         categories: list[str] | None = None,
         confidence: float = 0.80,
+        extra_prompt: str = "",
+        use_llm_confidence: bool = False,
     ) -> None:
         self._provider = provider  # kept for forward compat, but forced to local
         self._model = model
-        self._categories = categories or ["person_name", "company_name", "address"]
+        self._categories = categories or ["person name", "company name", "address"]
         self._confidence = confidence
+        self._extra_prompt = extra_prompt
+        self._use_llm_confidence = use_llm_confidence
 
     @property
     def _placeholder_category(self) -> str:
@@ -218,7 +256,11 @@ class LLMFilter(Filter):
             return []
 
         provider = OllamaProvider()
-        system = _SYSTEM_PROMPT.format(categories=", ".join(self._categories))
+        system = _build_system_prompt(
+            categories=", ".join(self._categories),
+            extra_prompt=self._extra_prompt,
+            use_llm_confidence=self._use_llm_confidence,
+        )
 
         messages = [
             {"role": "system", "content": system},
@@ -291,8 +333,30 @@ class LLMFilter(Filter):
                 )
                 continue
 
-            start, end, matched_value, conf_modifier = resolved
+            start, end, matched_value, offset_penalty, llm_weight = resolved
             consumed.add((start, end))
+
+            # ── Confidence blending ───────────────────────────
+            # When use_llm_confidence is enabled and the LLM returned a
+            # valid score (0.0 < val <= 1.0), blend it with the static
+            # base confidence.  The weight given to the LLM score depends
+            # on match quality: 0.50 for exact, 0.25 for fuzzy.
+            llm_conf = None
+            if self._use_llm_confidence:
+                raw_conf = ent.get("confidence")
+                if raw_conf is not None:
+                    try:
+                        val = float(raw_conf)
+                        if 0.0 < val <= 1.0:
+                            llm_conf = val
+                    except (TypeError, ValueError):
+                        pass
+
+            if llm_conf is not None:
+                self_weight = 1.0 - llm_weight
+                base = self._confidence * self_weight + llm_conf * llm_weight
+            else:
+                base = self._confidence
 
             detections.append(
                 Detection(
@@ -301,11 +365,13 @@ class LLMFilter(Filter):
                     start=start,
                     end=end,
                     original=matched_value,
-                    confidence=max(0.0, self._confidence + conf_modifier),
+                    confidence=max(0.0, base + offset_penalty),
                 )
             )
 
         return detections
 
     def __repr__(self) -> str:
-        return f"LLMFilter(model={self._model!r}, categories={self._categories})"
+        extra = f", extra_prompt={self._extra_prompt!r}" if self._extra_prompt else ""
+        llm_c = ", use_llm_confidence=True" if self._use_llm_confidence else ""
+        return f"LLMFilter(model={self._model!r}, categories={self._categories}{extra}{llm_c})"

@@ -1111,6 +1111,8 @@ cannot catch — person names, company names, street addresses, etc.
 PRIVACY_LLM_FILTER=true
 PRIVACY_LLM_MODEL=phi4              # any Ollama model
 PRIVACY_LLM_CATEGORIES=person_name,company_name,address
+PRIVACY_LLM_EXTRA_PROMPT="Treat German Handelsregisternummer as company ID. This is a legal document."
+PRIVACY_LLM_USE_LLM_CONFIDENCE=false  # blend LLM's per-entity confidence score
 ```
 
 The LLM filter employs a **"value is truth, offsets are hints"** strategy:
@@ -1118,6 +1120,46 @@ the LLM returns JSON with entity values and approximate character offsets.
 The SDK trusts the **value** and uses the offsets only as search hints,
 falling back to case-insensitive and whitespace-normalised matching when
 offsets are wrong — making it robust against typical LLM inaccuracies.
+
+The optional `PRIVACY_LLM_EXTRA_PROMPT` lets you inject domain-specific
+guidance (e.g. language hints, extra entity types, exclusion rules) without
+overriding the core detection and JSON output contract.
+
+When `PRIVACY_LLM_USE_LLM_CONFIDENCE` is enabled, the LLM is asked to return
+a per-entity confidence score. The score is blended with the static base
+confidence — weighted 50/50 for exact matches and 75/25 (favouring the static
+base) for fuzzy matches — so a poorly calibrated SLM cannot dominate the result.
+
+#### LLM Filter — Python usage
+
+```python
+from hybridagents.privacy import PrivacyConfig, LLMFilterConfig, PrivacyPipeline
+
+# Via config object
+config = PrivacyConfig(
+    llm_filter=LLMFilterConfig(
+        enabled=True,
+        model="phi4",
+        categories=["person name", "company name", "address"],
+        extra_prompt="This is a German legal document. Treat Handelsregisternummer as company ID.",
+        use_llm_confidence=True,
+    ),
+)
+pipeline = PrivacyPipeline.from_config(config)
+result = pipeline.scan("Max Mustermann, Musterstraße 42, 12345 Berlin")
+```
+
+```python
+# Or instantiate the filter directly
+from hybridagents.privacy.filters.llm_filter import LLMFilter
+
+filt = LLMFilter(
+    categories=["person name", "medical term", "ICD code"],
+    extra_prompt="Treat ICD codes (e.g. F32.1) as sensitive medical PII.",
+    use_llm_confidence=True,
+)
+pipeline.add_filter(filt)
+```
 
 ### Privacy Configuration Reference
 
@@ -1127,6 +1169,8 @@ offsets are wrong — making it robust against typical LLM inaccuracies.
 | `PRIVACY_CONFIDENCE_THRESHOLD` | `0.0`           | Min confidence to keep a detection              |
 | `PRIVACY_MODE`                 | `redact`        | `redact` (placeholders) or `mask` (****)        |
 | `PRIVACY_AUTO_FILTER`          | `false`         | Auto-scrub on aifoundry calls                   |
-| `PRIVACY_LLM_FILTER`          | `false`         | Enable local-LLM filter                         |
-| `PRIVACY_LLM_MODEL`           | `phi4`          | Ollama model for LLM filter                     |
-| `PRIVACY_LLM_CATEGORIES`      | `person_name,company_name,address` | Categories the LLM should detect |
+| `PRIVACY_LLM_FILTER`           | `false`         | Enable local-LLM filter                         |
+| `PRIVACY_LLM_MODEL`            | `phi4`          | Ollama model for LLM filter                     |
+| `PRIVACY_LLM_CATEGORIES`       | `person_name,company_name,address` | Categories the LLM should detect |
+| `PRIVACY_LLM_EXTRA_PROMPT`     | *(empty)*       | Additional instructions for the LLM filter      |
+| `PRIVACY_LLM_USE_LLM_CONFIDENCE` | `false`       | Blend LLM per-entity confidence into scoring    |

@@ -88,6 +88,8 @@ class PrivacyPipeline:
                     model=config.llm_filter.model,
                     categories=config.llm_filter.categories,
                     confidence=config.llm_filter.confidence,
+                    extra_prompt=config.llm_filter.extra_prompt,
+                    use_llm_confidence=config.llm_filter.use_llm_confidence,
                 )
             )
         except ImportError:
