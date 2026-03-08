@@ -753,7 +753,7 @@ These agents are defined in `examples/02_research_team/run.py`.
 
 ## Privacy SDK
 
-The **Privacy SDK** (`agents.privacy`) provides anonymisation and filtering of
+The **Privacy SDK** (`hybridagents.privacy`) provides anonymisation and filtering of
 sensitive data before it leaves the local machine — e.g. before sending prompts
 to Azure AI Foundry or any remote LLM provider.
 
