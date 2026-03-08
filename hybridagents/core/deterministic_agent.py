@@ -25,6 +25,12 @@ from typing import Any
 from hybridagents.core.results import AgentResponse, HandoverRequest
 
 
+def _resolve_collection(memory_collection: str | None) -> str:
+    """Return the effective ChromaDB collection name."""
+    from hybridagents.config import CHROMA_COLLECTION
+    return memory_collection or CHROMA_COLLECTION
+
+
 class DeterministicAgent(ABC):
     """Agent that runs user-defined code — no LLM, no tools.
 
@@ -37,6 +43,8 @@ class DeterministicAgent(ABC):
         in the REPL welcome banner.
     handover_agents:
         Names of agents this agent is allowed to hand tasks to.
+    memory_collection:
+        ChromaDB collection name.  ``None`` → global default from config.
     """
 
     def __init__(
@@ -44,10 +52,12 @@ class DeterministicAgent(ABC):
         name: str,
         instruction: str = "",
         handover_agents: list[str] | None = None,
+        memory_collection: str | None = None,
     ) -> None:
         self.name = name
         self.instruction = instruction
         self.handover_agents: list[str] = handover_agents or []
+        self.memory_collection: str | None = memory_collection
 
         # Stubs so orchestrator / registry code that reads these
         # attributes on a generic "agent" never raises AttributeError.
@@ -56,7 +66,61 @@ class DeterministicAgent(ABC):
         self.model: str | None = None
         self.temperature: float | None = None
         self.max_iterations: int | None = None
-        self.memory_collection: str | None = None
+
+    # ── memory convenience methods ────────────────────────
+
+    def memory_store(
+        self,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+        doc_id: str | None = None,
+        collection_name: str | None = None,
+    ) -> str:
+        """Store text into a memory collection.  Returns the doc id.
+
+        Parameters
+        ----------
+        collection_name:
+            Target collection.  ``None`` (default) → this agent's own
+            ``memory_collection`` (or the global default).
+        """
+        from hybridagents.core import memory
+        effective = collection_name or _resolve_collection(self.memory_collection)
+        return memory.store(
+            text,
+            metadata=metadata,
+            collection_name=effective,
+            doc_id=doc_id,
+        )
+
+    def memory_query(
+        self,
+        query: str,
+        n_results: int = 5,
+        where: dict[str, Any] | None = None,
+        collection_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Semantic search in a memory collection.
+
+        Parameters
+        ----------
+        collection_name:
+            Collection to search.  ``None`` (default) → this agent's own
+            ``memory_collection`` (or the global default).
+        """
+        from hybridagents.core import memory
+        effective = collection_name or _resolve_collection(self.memory_collection)
+        return memory.query(
+            query,
+            n_results=n_results,
+            collection_name=effective,
+            where=where,
+        )
+
+    def memory_list_collections(self) -> list[str]:
+        """List all ChromaDB collections."""
+        from hybridagents.core import memory
+        return memory.list_collections()
 
     # ── abstract entry point ──────────────────────────────
 

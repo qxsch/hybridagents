@@ -36,6 +36,7 @@ python examples/04_orchestration_patterns/run.py # sequential, debate, voting
 python examples/05_custom_tools/run.py           # custom @tool decorator
 python examples/06_deterministic/run.py          # deterministic (code-only) agents
 python examples/07_multi_runtime/run.py          # multiple isolated runtimes, enter/exit
+python examples/08_memory_isolation/run.py       # memory collection isolation per agent
 ```
 
 > **No install?** Each example also works without `pip install -e .` — it adds
@@ -52,6 +53,7 @@ python examples/07_multi_runtime/run.py          # multiple isolated runtimes, e
 | 05 | `examples/05_custom_tools/`       | Writing and registering custom tools |
 | 06 | `examples/06_deterministic/`      | Deterministic (code-only) agents with handovers |
 | 07 | `examples/07_multi_runtime/`      | Multiple isolated runtimes, context-manager enter/exit |
+| 08 | `examples/08_memory_isolation/`   | Memory collection isolation, cross-collection querying |
 
 ## Environment Configuration
 
@@ -490,8 +492,10 @@ examples/                     # ── Self-contained, directly runnable example
 │   └── tools.py              # Custom tools: current_time, dice_roll, word_count
 ├── 06_deterministic/
 │   └── run.py                # Deterministic agents: validator, keyword router
-└── 07_multi_runtime/
-    └── run.py                # Two isolated runtimes, with-block & activate/deactivate
+├── 07_multi_runtime/
+│   └── run.py                # Two isolated runtimes, with-block & activate/deactivate
+└── 08_memory_isolation/
+    └── run.py                # Memory isolation: private & shared collections
 ```
 
 ## Runtime
@@ -604,9 +608,99 @@ rt.run("validator", "  Tell me about quantum computing  ")
 | `HandoverRequest(agent_name, task, context={})` | Delegate to another agent (LLM or deterministic). |
 
 Handovers work in both directions: deterministic → LLM, LLM → deterministic,
-and deterministic → deterministic. The depth limit of 5 applies to all chains.
+and deterministic → deterministic. The depth limit of 10 applies to all chains.
 
 See `examples/06_deterministic/` for a full working example.
+
+## Vector Memory (ChromaDB)
+
+The framework uses **ChromaDB** as a persistent vector store for agent memory.
+Both `Agent` (LLM-backed) and `DeterministicAgent` (code-only) support a
+`memory_collection` attribute that controls which ChromaDB collection the
+agent reads from and writes to.
+
+### Collection routing via `memory_collection`
+
+```python
+# Uses the global default collection ("agent_memory" from .env/config)
+Agent(name="assistant", instruction="...", memory_collection=None)
+
+# Dedicated collection — only this agent uses it
+Agent(name="researcher", instruction="...", memory_collection="researcher_memory")
+
+# Shared collection — multiple agents can share the same space
+Agent(name="analyst_a", instruction="...", memory_collection="analysis_team")
+Agent(name="analyst_b", instruction="...", memory_collection="analysis_team")
+```
+
+| `memory_collection` value | Behaviour |
+|---------------------------|-----------|
+| `None` (default)          | Uses the global default collection (`CHROMA_COLLECTION` from `.env`, default `"agent_memory"`) |
+| `"<name>"`                | Uses (or creates) the named collection — isolated from other agents unless they use the same name |
+
+By default **all agents share the same collection** (`CHROMA_COLLECTION`).
+Only when you explicitly set `memory_collection` to a different name does an
+agent get its own isolated (or team-shared) space. This behaviour is
+consistent across all orchestration patterns e.g. sequential, debate, voting,
+blackboard, etc.
+
+### LLM agents (tool-based access)
+
+LLM agents access memory through the `memory_search` and `memory_store` tools.
+The collection is resolved **automatically** from the agent's
+`memory_collection` — the LLM never needs to know which collection it's using.
+
+```python
+rt.register(
+    Agent(
+        name="researcher",
+        instruction="...",
+        tool_names=["memory_search", "memory_store"],
+        memory_collection="researcher_memory",   # tools auto-target this collection
+    )
+)
+```
+
+### Deterministic agents (direct access)
+
+`DeterministicAgent` subclasses get three convenience methods for direct
+ChromaDB interaction — no tools needed:
+
+```python
+class MyAgent(DeterministicAgent):
+    def execute(self, message, conversation=None, context=None):
+        # Store a finding
+        doc_id = self.memory_store("Important fact", metadata={"source": "web"})
+
+        # Semantic search
+        results = self.memory_query("relevant topic", n_results=3)
+
+        # List all collections
+        collections = self.memory_list_collections()
+
+        return AgentResponse(answer=f"Found {len(results)} results")
+
+rt.register(MyAgent(
+    name="indexer",
+    instruction="Indexes documents into memory.",
+    memory_collection="knowledge_base",   # methods auto-target this collection
+))
+```
+
+| Method | Description |
+|--------|-------------|
+| `self.memory_store(text, ..., collection_name=None)` | Store text, returns the doc id. Pass `collection_name` to target a different collection. |
+| `self.memory_query(query, ..., collection_name=None)` | Semantic search, returns list of `{id, document, metadata, distance}`. Pass `collection_name` to search a different collection. |
+| `self.memory_list_collections()` | List all ChromaDB collection names |
+
+### Typical patterns
+
+| Pattern | Setup | Effect |
+|---------|-------|--------|
+| **Shared knowledge base** | All agents use `memory_collection=None` | Everyone reads/writes the same global collection |
+| **Private scratchpad** | Each agent uses a unique name, e.g. `"agent_<name>"` | Complete isolation per agent |
+| **Team memory** | Give a group of agents the same collection name | Shared within the team, isolated from others |
+| **Mixed** | Some agents share a collection, others have their own | Flexible per use-case |
 
 ## How to Create a New Example
 
@@ -711,7 +805,7 @@ User → Orchestrator
 
 The orchestrator receives the sub-agent's answer as an observation and can
 continue reasoning or return the final answer to the user.
-Handover depth is limited to 5 to prevent infinite loops.
+Handover depth is limited to 10 to prevent infinite loops.
 
 ## Configuration
 

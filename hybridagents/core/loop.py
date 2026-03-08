@@ -16,6 +16,7 @@ from rich.panel import Panel
 
 from hybridagents.config import MAX_LOOP_ITERATIONS, VERBOSE
 from hybridagents.core.agent import Agent
+from hybridagents.core.agent_context import current_agent
 from hybridagents.core.agent_registry import agents_available_to, get_agent
 from hybridagents.core.deterministic_agent import DeterministicAgent
 from hybridagents.core.llm import chat_completion, parse_json_response
@@ -76,7 +77,7 @@ def _run_deterministic(
     depth: int,
 ) -> str:
     """Execute a deterministic agent, handling handovers recursively."""
-    if depth > 5:
+    if depth > 10:
         return "[ERROR] Maximum handover depth reached."
 
     result = agent.execute(
@@ -120,6 +121,9 @@ def run_agent(
     Supports both LLM-backed ``Agent`` and code-only
     ``DeterministicAgent`` instances.
     """
+    # ── Set current agent context (tools read this) ───────
+    current_agent.set(agent)
+
     # ── Deterministic fast-path ────────────────────────────
     if isinstance(agent, DeterministicAgent):
         return _run_deterministic(agent, user_message, conversation, depth)
@@ -132,7 +136,7 @@ def run_agent(
             _rt = Runtime(load_defaults=True)
             _rt.activate()
 
-    if depth > 5:
+    if depth > 10:
         return "[ERROR] Maximum handover depth reached."
 
     system_prompt = _build_system_prompt(agent)

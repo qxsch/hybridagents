@@ -24,6 +24,7 @@ python examples/01_simple_chat/run.py
 | 05 | `05_custom_tools/`           | Writing and registering custom tools |
 | 06 | `06_deterministic/`          | Deterministic (code-only) agents with handovers |
 | 07 | `07_multi_runtime/`          | Multiple isolated runtimes, context-manager enter/exit |
+| 08 | `08_memory_isolation/`       | Memory collection isolation, cross-collection querying |
 
 ## Creating Your Own Example
 
