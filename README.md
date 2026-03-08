@@ -1154,7 +1154,7 @@ result = pipeline.scan("Max Mustermann, Musterstraße 42, 12345 Berlin")
 from hybridagents.privacy.filters.llm_filter import LLMFilter
 
 filt = LLMFilter(
-    categories=["person name", "medical term", "ICD code"],
+    categories=["person name", "ICD code"],
     extra_prompt="Treat ICD codes (e.g. F32.1) as sensitive medical PII.",
     use_llm_confidence=True,
 )
